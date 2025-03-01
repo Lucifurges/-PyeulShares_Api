@@ -9,7 +9,7 @@ app = Flask(__name__)
 # Allow CORS for your frontend
 CORS(app, resources={r"/share": {"origins": ["https://pyeulshares-exclusive-for-owner.onrender.com"]}})
 
-def share_post(token, share_url, share_count, results):
+def share_post(token, share_url, share_count, delay, results):
     url = "https://graph.facebook.com/me/feed"
     headers = {"User-Agent": "Mozilla/5.0"}
     data = {
@@ -31,7 +31,8 @@ def share_post(token, share_url, share_count, results):
                 print(f"Failed: {response_data}")
         except requests.exceptions.RequestException as e:
             print(f"Request failed for token {token[:10]}: {e}")
-        time.sleep(0.5)  # Prevent hitting Facebook API limits
+        
+        time.sleep(delay)  # Dynamic delay from frontend
 
     results[token] = success_count
 
@@ -52,6 +53,7 @@ def share():
     tokens = data.get("tokens", [])
     share_url = data.get("postLink")
     share_count = data.get("shares", 1)
+    delay = float(data.get("delay", 0.5))  # Default delay is 0.5 seconds
 
     if not tokens or not share_url:
         return jsonify({"error": "Missing required fields"}), 400
@@ -60,10 +62,10 @@ def share():
     results = {}
 
     for token in tokens:
-        thread = threading.Thread(target=share_post, args=(token, share_url, share_count, results))
+        thread = threading.Thread(target=share_post, args=(token, share_url, share_count, delay, results))
         thread.start()
         threads.append(thread)
-        time.sleep(0.2)
+        time.sleep(0.1)  # Prevent thread overload
 
     for thread in threads:
         thread.join()
